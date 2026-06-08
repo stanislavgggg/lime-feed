@@ -1,0 +1,59 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  MetaPlay Arena — деплой на Render (Blueprint).                            ║
+# ║  ДВА сервиса: фоновый воркер (бот) + web (HTTP API для мини-аппа).         ║
+# ║  ВАЖНО: на Render у каждого сервиса СВОЙ env — поэтому канал/режим заданы   ║
+# ║  у ОБОИХ, иначе /api/config отдаст плейсхолдер, а гейт не включится.        ║
+# ║                                                                            ║
+# ║  Что выставить вручную в дашборде (sync:false — секреты/твои значения):     ║
+# ║    BOT_TOKEN, ANTHROPIC_API_KEY, PANDASCORE_KEY, RAPIDAPI_KEY,             ║
+# ║    CHANNEL_URL (https://t.me/<твой_канал>), BOT_USERNAME (<bot> без @).     ║
+# ║  CHANNEL_ID нужен ТОЛЬКО для приватного канала (числовой -100…).            ║
+# ║  Бот ОБЯЗАН быть админом канала — иначе проверка подписки не работает.      ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+services:
+  # ── Telegram-бот (Background Worker) ────────────────────────────────────────
+  - type: worker
+    name: arena-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - { key: PYTHON_VERSION, value: "3.12.9" }
+      - { key: BRAND_ID,      value: metaplay }
+      - { key: CTA_MODE,      value: channel }   # цель = подписка на канал
+      - { key: CTA_GATE,      value: "true" }
+      - { key: HONEST_STATS,  value: "true" }
+      - { key: DB_PATH,       value: users.json }
+      # секреты / твои значения — задать в дашборде
+      - { key: BOT_TOKEN,         sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: PANDASCORE_KEY,    sync: false }
+      - { key: RAPIDAPI_KEY,      sync: false }
+      - { key: CHANNEL_URL,       sync: false }   # https://t.me/<твой_канал>
+      - { key: CHANNEL_ID,        sync: false }   # только для приватного канала (-100…)
+      - { key: BOT_USERNAME,      sync: false }   # <bot> без @
+      - { key: ADMIN_IDS,         sync: false }
+
+  # ── HTTP API (Web Service — кормит мини-апп данными) ────────────────────────
+  - type: web
+    name: arena-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python api.py
+    envVars:
+      - { key: PYTHON_VERSION, value: "3.12.9" }
+      - { key: BRAND_ID,      value: metaplay }
+      - { key: CTA_MODE,      value: channel }   # ДОЛЖНО совпадать с воркером
+      - { key: CTA_GATE,      value: "true" }
+      - { key: HONEST_STATS,  value: "true" }
+      - { key: PORT,          value: "8080" }
+      # CORS: домен мини-аппа. '*' — просто работает; можно сузить до своего домена.
+      - { key: MINI_APP_ORIGIN, value: "*" }
+      # ТЕ ЖЕ канальные переменные, что и у воркера (иначе /api/config = плейсхолдер)
+      - { key: BOT_TOKEN,         sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: PANDASCORE_KEY,    sync: false }
+      - { key: RAPIDAPI_KEY,      sync: false }
+      - { key: CHANNEL_URL,       sync: false }   # https://t.me/<твой_канал>
+      - { key: CHANNEL_ID,        sync: false }   # только для приватного канала (-100…)
+      - { key: BOT_USERNAME,      sync: false }   # <bot> без @
